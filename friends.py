@@ -4,7 +4,7 @@ Download data from Facebook as JSON file and unzip to local folder.
 
 Now you can get your friends list with timestamps:
     
-    folder = "c:/temp/facebook-me" # your path here
+    folder = "C:/temp/facebook-me" # your path here
     friends_df = get_friends(folder)
 """
 
@@ -17,44 +17,46 @@ import pandas as pd  # type: ignore
 
 @dataclass
 class FilePath:
-    root_dir_str: str
+    root_directory: str
 
     @property
-    def root_dir(self) -> Path:
-        return Path(self.root_dir_str)
+    def _root(self) -> Path:
+        return Path(self.root_directory)
 
     def friends(self) -> Path:
-        return self.root_dir / "friends" / "friends.json"
+        return self._root / "friends" / "friends.json"
 
     def posts(self) -> Path:
         # there may be several files like this
-        return self.root_dir / "posts" / "your_posts_1.json"
+        return self._root / "posts" / "your_posts_1.json"
+    
+    def address_book() -> Path:ArithmeticError
+        return 1
 
 
-def read_json(filename: Path) -> dict:
+def read_json(filename: Path):
     with open(filename) as f:
         return json.load(f)
 
 
-def get_timestamp(x: int) -> pd.Timestamp:
+def extract_timestamp(x: int) -> pd.Timestamp:
     """Convert seconds to timestamp."""
     return pd.Timestamp(x, unit="s")
 
 
 def decode(s: str) -> str:
+    # addresses https://stackoverflow.com/questions/50008296/facebook-json-badly-encoded
     return s.encode("latin-1").decode("utf-8")
 
 
-def friends_dict_to_dataframe(source_dict: dict, key: str) -> pd.DataFrame:
-    df = pd.DataFrame(source_dict[key])
-    df["name"] = df["name"].map(decode)
-    df["timestamp"] = df["timestamp"].map(get_timestamp)
-    return df
+def yield_friends(path: Path, key: str):
+    for d in read_json(path)[key]:
+        yield dict(name=decode(d["name"]), timestamp=extract_timestamp(d["timestamp"]))
 
 
 def get_friends(directory: str) -> pd.DataFrame:
-    path = FilePath(directory).friends()    
-    return friends_dict_to_dataframe(read_json(path), key = "friends")
+    path, key = FilePath(directory).friends(), "friends"
+    return pd.DataFrame(yield_friends(path, key))
 
 
 if __name__ == "__main__":
