@@ -49,7 +49,7 @@ def friends_dict_to_dataframe(source_dict: dict, key: str) -> pd.DataFrame:
     df = pd.DataFrame(source_dict[key])
     df["name"] = df["name"].map(decode)
     df["timestamp"] = df["timestamp"].map(get_timestamp)
-    return df.set_index("timestamp")
+    return df
 
 
 def get_friends(directory: str) -> pd.DataFrame:
@@ -58,8 +58,8 @@ def get_friends(directory: str) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    friends_df = get_friends(".")
-    print(friends_df.groupby(pd.Grouper(freq="M")).count())
+    friends_df = get_friends("./facebook-epogrebnyak")
+    print(friends_df.set_index("timestamp").groupby(pd.Grouper(freq="M")).count())
 
 #             name
 # timestamp
