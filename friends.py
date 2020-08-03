@@ -11,7 +11,6 @@ Now you can get your friends list with timestamps:
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Tuple
 
 import pandas as pd  # type: ignore
 
@@ -24,8 +23,12 @@ class FilePath:
     def root_dir(self) -> Path:
         return Path(self.root_dir_str)
 
-    def friends(self) -> Tuple[Path, str]:
-        return self.root_dir / "friends" / "friends.json", "friends"
+    def friends(self) -> Path:
+        return self.root_dir / "friends" / "friends.json"
+
+    def posts(self) -> Path:
+        # there may be several files like this
+        return self.root_dir / "posts" / "your_posts_1.json"
 
 
 def read_json(filename: Path) -> dict:
@@ -34,10 +37,7 @@ def read_json(filename: Path) -> dict:
 
 
 def get_timestamp(x: int) -> pd.Timestamp:
-    """Convert seconds to timestamp.    
-    >>> get_timestamp(1582964988)
-    Timestamp('2020-02-29 08:29:48')
-    """
+    """Convert seconds to timestamp."""
     return pd.Timestamp(x, unit="s")
 
 
@@ -53,8 +53,8 @@ def friends_dict_to_dataframe(source_dict: dict, key: str) -> pd.DataFrame:
 
 
 def get_friends(directory: str) -> pd.DataFrame:
-    path, key = FilePath(directory).friends()
-    return friends_dict_to_dataframe(read_json(path), key)
+    path = FilePath(directory).friends()    
+    return friends_dict_to_dataframe(read_json(path), key = "friends")
 
 
 if __name__ == "__main__":
