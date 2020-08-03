@@ -29,9 +29,9 @@ class FilePath:
     def posts(self) -> Path:
         # there may be several files like this
         return self._root / "posts" / "your_posts_1.json"
-    
-    def address_book() -> Path:ArithmeticError
-        return 1
+
+    def address_book(self) -> Path:
+        return self._root / "about_you" / "your_address_books.json"
 
 
 def read_json(filename: Path):
@@ -54,14 +54,37 @@ def yield_friends(path: Path, key: str):
         yield dict(name=decode(d["name"]), timestamp=extract_timestamp(d["timestamp"]))
 
 
-def get_friends(directory: str) -> pd.DataFrame:
+def get_friends(directory: str):
     path, key = FilePath(directory).friends(), "friends"
-    return pd.DataFrame(yield_friends(path, key))
+    return list(yield_friends(path, key))
+
+
+def _get_details(d: dict) -> str:
+    try:
+        return d["details"][0]["contact_point"]
+    except IndexError:
+        return ""
+
+
+def yield_address_book(path: Path):
+    for d in read_json(path)["address_book"]["address_book"]:
+        yield dict(name=decode(d["name"]), contact_point=_get_details(d))
+
+
+def get_address_book(directory: str):
+    path = FilePath(directory).address_book()
+    return list(yield_address_book(path))
 
 
 if __name__ == "__main__":
-    friends_df = get_friends("./facebook-epogrebnyak")
+    folder = "./facebook-epogrebnyak"
+    friends_df = pd.DataFrame(get_friends(folder))
+    print("Friends added in Jan-Jul 2020:", len(friends_df))
+    print("By month:")
     print(friends_df.set_index("timestamp").groupby(pd.Grouper(freq="M")).count())
+    
+    phones = get_address_book(folder)
+    print("\nNumbers from my phonebook Facebook stores:", len(phones))
 
 #             name
 # timestamp
