@@ -16,25 +16,35 @@ from pathlib import Path
 import datetime
 
 
-__all__ = ['get_friends', 'get_address_book']
+__all__ = ["get_friends", "get_address_book"]
+
 
 @dataclass
 class FilePath:
-    root_directory: str
+    directory: str
 
     @property
-    def _root(self) -> Path:
-        return Path(self.root_directory)
+    def root(self) -> Path:
+        return Path(self.directory)
 
     def friends(self) -> Path:
-        return self._root / "friends" / "friends.json"
+        return self.root / "friends" / "friends.json"
 
     def posts(self) -> Path:
         # there may be several files like this
-        return self._root / "posts" / "your_posts_1.json"
+        return self.root / "posts" / "your_posts_1.json"
 
     def address_book(self) -> Path:
-        return self._root / "about_you" / "your_address_books.json"
+        return self.root / "about_you" / "your_address_books.json"
+
+
+def filepath(directory, attrib):
+    return getattr(FilePath(directory), attrib)()
+
+
+def get(directory, attrib, yield_func):
+    d = read_json(filepath(directory, attrib))
+    return list(yield_func(d))
 
 
 def read_json(filename: Path):
@@ -52,44 +62,73 @@ def decode(s: str) -> str:
     return s.encode("latin-1").decode("utf-8")
 
 
-def yield_friends(path: Path, key: str):
-    for d in read_json(path)[key]:
+def yield_friends(xs):
+    for d in xs["friends"]:
         yield dict(name=decode(d["name"]), timestamp=extract_timestamp(d["timestamp"]))
 
 
 def get_friends(directory: str):
-    path, key = FilePath(directory).friends(), "friends"
-    return list(yield_friends(path, key))
+    return get(directory, "friends", yield_friends)
 
 
-def _get_details(d: dict) -> str:
+def extract_details(d: dict) -> str:
     try:
         return d["details"][0]["contact_point"]
     except IndexError:
         return ""
 
 
-def yield_address_book(path: Path):
-    for d in read_json(path)["address_book"]["address_book"]:
-        yield dict(name=decode(d["name"]), contact_point=_get_details(d))
+from typing import Callable
+
+@dataclass
+class Getter:    
+    access_with : Callable = lambda xs: xs
+    extract : Callable = lambda x: x    
+    
+
+def yield_address_book(xs):
+    for x in xs["address_book"]["address_book"]:
+        yield dict(name=decode(x["name"]), contact_point=extract_details(x))
 
 
 def get_address_book(directory: str):
-    path = FilePath(directory).address_book()
-    return list(yield_address_book(path))
+    return get(directory, "address_book", yield_address_book)
+
+
+def extract_post(d: dict) -> str:
+    try:
+        return decode(d["data"][0]["post"])
+    except KeyError:
+        return ""
+
+
+def yield_posts(xs):
+    for x in xs:
+        yield dict(post=extract_post(x), timestamp=extract_timestamp(x["timestamp"]))
+
+
+def get_posts(directory: str):
+    return get(directory, "posts", yield_posts)
 
 
 if __name__ == "__main__":
     import pandas as pd  # type: ignore
+
+    def cnt(items):
+        return (
+            pd.DataFrame(items)
+            .set_index("timestamp")
+            .groupby(pd.Grouper(freq="M"))
+            .count()
+        )
 
     folder = "./facebook-epogrebnyak"
     friends = get_friends(folder)
     print("Friends added in Jan-Jul 2020:", len(friends))
     # Friends added in Jan-Jul 2020: 39
 
-    print("By month:")
-    friends_df = pd.DataFrame(friends).set_index("timestamp")
-    print(friends_df.groupby(pd.Grouper(freq="M")).count())
+    friends_df = pd.DataFrame(friends)
+    print("By month:", cnt(friends))
     # By month:
     #             name
     # timestamp
@@ -104,6 +143,10 @@ if __name__ == "__main__":
     phones = get_address_book(folder)
     print("\nNumbers from my phonebook on Facebook:", len(phones))
     # Numbers from my phonebook Facebook stores:
+
+    posts = get_posts(folder)
+    print("\nNumbers of posts Jan-Jul 2020:", len(posts))
+    print("By month:\n", cnt(posts))
 
 # TODO - things to try:
 # - Enforce dataframe properties via pandera or bulwark
