@@ -1,4 +1,4 @@
-import pandas as pd  
+import pandas as pd
 
 from friends import get_friends, get_address_book
 
@@ -8,7 +8,6 @@ folder = "./facebook-epogrebnyak"
 # Friends added in Jan-Jul 2020: 39
 friends = get_friends(folder)
 print("Friends added in Jan-Jul 2020:", len(friends))
-
 
 print("Friends added by month:")
 friends_df = pd.DataFrame(friends).set_index("timestamp")

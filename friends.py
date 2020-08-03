@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import datetime
 
+
 @dataclass
 class FilePath:
     root_directory: str
@@ -39,7 +40,7 @@ def read_json(filename: Path):
 
 def extract_timestamp(x: int) -> datetime.datetime:
     """Convert seconds to timestamp."""
-    return datetime.datetime.fromtimestamp(x) 
+    return datetime.datetime.fromtimestamp(x)
 
 
 def decode(s: str) -> str:
@@ -73,14 +74,15 @@ def get_address_book(directory: str):
     path = FilePath(directory).address_book()
     return list(yield_address_book(path))
 
-if __name__ == "__main__":    
-    import pandas as pd  # type: ignore    
+
+if __name__ == "__main__":
+    import pandas as pd  # type: ignore
 
     folder = "./facebook-epogrebnyak"
     friends = get_friends(folder)
     print("Friends added in Jan-Jul 2020:", len(friends))
     # Friends added in Jan-Jul 2020: 39
-    
+
     print("By month:")
     friends_df = pd.DataFrame(friends).set_index("timestamp")
     print(friends_df.groupby(pd.Grouper(freq="M")).count())
@@ -97,9 +99,9 @@ if __name__ == "__main__":
 
     phones = get_address_book(folder)
     print("\nNumbers from my phonebook on Facebook:", len(phones))
-    # Numbers from my phonebook Facebook stores: 
+    # Numbers from my phonebook Facebook stores:
 
-# TODO - Things to try:        
+# TODO - Things to try:
 # - Enforce dataframe properties via pandera or bulwark
 # - Generate fake data and folder stucture for testing
 # - Add post, comments, locations
