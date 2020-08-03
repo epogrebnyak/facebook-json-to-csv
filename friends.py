@@ -1,11 +1,13 @@
-"""Convert Facebook JSON data to pandas dataframes.
+"""Convert Facebook JSON data to plain format for data analysis.
 
 Download data from Facebook as JSON file and unzip to local folder.
 
-Now you can get your friends list with timestamps:
+Now you can get your friends list with timestamps 
+and your phone numbers stored by Facebook:
     
     folder = "C:/temp/facebook-me" # your path here
     friends = get_friends(folder)
+    phones =  get_address_book(folder)
 """
 
 import json
@@ -103,7 +105,7 @@ if __name__ == "__main__":
     print("\nNumbers from my phonebook on Facebook:", len(phones))
     # Numbers from my phonebook Facebook stores:
 
-# TODO - Things to try:
+# TODO - things to try:
 # - Enforce dataframe properties via pandera or bulwark
 # - Generate fake data and folder stucture for testing
 # - Add post, comments, locations
