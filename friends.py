@@ -99,3 +99,7 @@ if __name__ == "__main__":
     print("\nNumbers from my phonebook on Facebook:", len(phones))
     # Numbers from my phonebook Facebook stores: 
 
+# TODO - Things to try:        
+# - Enforce dataframe properties via pandera or bulwark
+# - Generate fake data and folder stucture for testing
+# - Add post, comments, locations
