@@ -11,9 +11,7 @@ Now you can get your friends list with timestamps:
 import json
 from dataclasses import dataclass
 from pathlib import Path
-
-import pandas as pd  # type: ignore
-
+import datetime
 
 @dataclass
 class FilePath:
@@ -39,9 +37,9 @@ def read_json(filename: Path):
         return json.load(f)
 
 
-def extract_timestamp(x: int) -> pd.Timestamp:
+def extract_timestamp(x: int) -> datetime.datetime:
     """Convert seconds to timestamp."""
-    return pd.Timestamp(x, unit="s")
+    return datetime.datetime.fromtimestamp(x) 
 
 
 def decode(s: str) -> str:
@@ -75,23 +73,29 @@ def get_address_book(directory: str):
     path = FilePath(directory).address_book()
     return list(yield_address_book(path))
 
+if __name__ == "__main__":    
+    import pandas as pd  # type: ignore    
 
-if __name__ == "__main__":
     folder = "./facebook-epogrebnyak"
-    friends_df = pd.DataFrame(get_friends(folder))
-    print("Friends added in Jan-Jul 2020:", len(friends_df))
-    print("By month:")
-    print(friends_df.set_index("timestamp").groupby(pd.Grouper(freq="M")).count())
+    friends = get_friends(folder)
+    print("Friends added in Jan-Jul 2020:", len(friends))
+    # Friends added in Jan-Jul 2020: 39
     
-    phones = get_address_book(folder)
-    print("\nNumbers from my phonebook Facebook stores:", len(phones))
+    print("By month:")
+    friends_df = pd.DataFrame(friends).set_index("timestamp")
+    print(friends_df.groupby(pd.Grouper(freq="M")).count())
+    # By month:
+    #             name
+    # timestamp
+    # 2020-01-31     3
+    # 2020-02-29     2
+    # 2020-03-31     2
+    # 2020-04-30     3
+    # 2020-05-31     8
+    # 2020-06-30    18
+    # 2020-07-31     3
 
-#             name
-# timestamp
-# 2020-01-31     3
-# 2020-02-29     2
-# 2020-03-31     2
-# 2020-04-30     3
-# 2020-05-31     8
-# 2020-06-30    18
-# 2020-07-31     3
+    phones = get_address_book(folder)
+    print("\nNumbers from my phonebook on Facebook:", len(phones))
+    # Numbers from my phonebook Facebook stores: 
+
