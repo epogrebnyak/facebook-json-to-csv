@@ -1,0 +1,6 @@
+import pandas as pd
+
+from friends import get_timestamp
+
+def test_get_timestamp():
+    assert get_timestamp(1582964988) == pd.Timestamp('2020-02-29 08:29:48')
