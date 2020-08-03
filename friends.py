@@ -5,7 +5,7 @@ Download data from Facebook as JSON file and unzip to local folder.
 Now you can get your friends list with timestamps:
     
     folder = "C:/temp/facebook-me" # your path here
-    friends_df = get_friends(folder)
+    friends = get_friends(folder)
 """
 
 import json
@@ -13,6 +13,8 @@ from dataclasses import dataclass
 from pathlib import Path
 import datetime
 
+
+__all__ = ['get_friends', 'get_address_book']
 
 @dataclass
 class FilePath:
