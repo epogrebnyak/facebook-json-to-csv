@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, List
 
-__all__ = ["get_friends", "get_address_book", "get_posts"]
+__all__ = ["get_friends", "get_address_book", "get_posts", "get_comments"]
 
 
 @dataclass
@@ -43,13 +43,24 @@ class Getter:
     def get(self, directory):
         return list(self.iterate(directory))
 
-    def dataframe(self, directory):
+    def get_dataframe(self, directory):
         import pandas as pd # type: ignore
 
         df = pd.DataFrame(self.iterate(directory), columns=self.columns)
         if "timestamp" in self.columns:
             df["timestamp"] = df.timestamp.map(lambda x: pd.Timestamp(x, unit="s"))
         return df
+    
+
+def get_list(directory, fb_item):
+    return fb_item.get(directory)
+    
+def iterate(directory, fb_item):
+    return fb_item.iterate(directory)
+
+def get_dataframe(directory, fb_item):
+    return fb_item.get_dataframe(directory)
+
 
 
 class FB:
@@ -174,7 +185,7 @@ if __name__ == "__main__":
     directory = "./facebook-epogrebnyak"
     friends = get_friends(directory)
     print("Friends added in Jan-Jul 2020 by month (total %i)" % len(friends))
-    friends_df = FB.friends.dataframe(directory)
+    friends_df = FB.friends.get_dataframe(directory)
     print_count(friends_df)
 
     phones = get_address_book(directory)
@@ -183,7 +194,7 @@ if __name__ == "__main__":
 
     posts = get_posts(directory)
     print("\nNumber of posts Jan-Jul 2020 by month (total %i)" % len(posts))
-    posts_df = FB.posts.dataframe(directory)
+    posts_df = FB.posts.get_dataframe(directory)
     print_count(posts_df)
 
 # TODO - things to try:
