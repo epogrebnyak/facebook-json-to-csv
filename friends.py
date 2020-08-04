@@ -1,11 +1,14 @@
 """Convert Facebook JSON data to plain format for data analysis.
 
-Download data from Facebook as JSON file and unzip to local folder.
+Download data from Facebook as JSON file and unzip to local folder,
+like "C:/temp/facebook-me".
 
 Now you can get your friends list with timestamps and your phone 
 numbers stored by Facebook as well as posts:
     
-    directory = "C:/temp/facebook-me" # your path here
+    from friends import get_friends, get_address_book, get_posts
+    
+    directory = "C:/temp/facebook-me" # your path to folder with JSON here
     friends = get_friends(directory)
     phones = get_address_book(directory)
     posts = get_posts(directory)
@@ -159,8 +162,12 @@ if __name__ == "__main__":
     print_count(posts)
 
 # TODO - things to try:
+    
+# Implementation:   
 # - Enforce dataframe properties via pandera or bulwark
 # - Generate fake data and folder stucture for testing
-# - Add comments, locations
-# - CLI graphs
+
+# Functionality:   
+# - [x] text-based graphs 
+# - add comments, locations retieval - new get_something() functions
 # - output directory for CSVs
