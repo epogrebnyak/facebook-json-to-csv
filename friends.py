@@ -2,49 +2,36 @@
 
 Download data from Facebook as JSON file and unzip to local folder.
 
-Now you can get your friends list with timestamps 
-and your phone numbers stored by Facebook:
+Now you can get your friends list with timestamps and your phone 
+numbers stored by Facebook as well as posts:
     
-    folder = "C:/temp/facebook-me" # your path here
-    friends = get_friends(folder)
-    phones =  get_address_book(folder)
+    directory = "C:/temp/facebook-me" # your path here
+    friends = get_friends(directory)
+    phones = get_address_book(directory)
+    posts = get_posts(directory)
+
 """
 
-import json
-from dataclasses import dataclass
-from pathlib import Path
 import datetime
+import json
+from pathlib import Path
+from typing import Dict, List
+
+__all__ = ["get_friends", "get_address_book", "get_posts"]
 
 
-__all__ = ["get_friends", "get_address_book"]
+def path_friends(directory: str) -> Path:
+    return Path(directory) / "friends" / "friends.json"
 
 
-@dataclass
-class FilePath:
-    directory: str
-
-    @property
-    def root(self) -> Path:
-        return Path(self.directory)
-
-    def friends(self) -> Path:
-        return self.root / "friends" / "friends.json"
-
-    def posts(self) -> Path:
-        # there may be several files like this
-        return self.root / "posts" / "your_posts_1.json"
-
-    def address_book(self) -> Path:
-        return self.root / "about_you" / "your_address_books.json"
+# maybe there are several files for posts
+def path_posts(directory: str) -> Path:
+    return Path(directory) / "posts" / "your_posts_1.json"
 
 
-def filepath(directory, attrib):
-    return getattr(FilePath(directory), attrib)()
-
-
-def get(directory, attrib, yield_func):
-    d = read_json(filepath(directory, attrib))
-    return list(yield_func(d))
+# maybe there are several files for posts
+def path_address_book(directory: str) -> Path:
+    return Path(directory) / "about_you" / "your_address_books.json"
 
 
 def read_json(filename: Path):
@@ -57,42 +44,41 @@ def extract_timestamp(x: int) -> datetime.datetime:
     return datetime.datetime.fromtimestamp(x)
 
 
-def decode(s: str) -> str:
-    # addresses https://stackoverflow.com/questions/50008296/facebook-json-badly-encoded
-    return s.encode("latin-1").decode("utf-8")
+def decode(string: str) -> str:
+    """Return *string* in readable view.
+    
+    Addresses this issue:
+    https://stackoverflow.com/questions/50008296/facebook-json-badly-encoded
+    
+    """
+    return string.encode("latin-1").decode("utf-8")
 
 
-def yield_friends(xs):
-    for d in xs["friends"]:
-        yield dict(name=decode(d["name"]), timestamp=extract_timestamp(d["timestamp"]))
+def yield_friends(xs: Dict):
+    for x in xs["friends"]:
+        yield dict(name=decode(x["name"]), timestamp=extract_timestamp(x["timestamp"]))
 
 
 def get_friends(directory: str):
-    return get(directory, "friends", yield_friends)
+    return get_list(directory, path_friends, yield_friends)
 
 
-def extract_details(d: dict) -> str:
+def extract_address_book_details(d: dict) -> str:
     try:
         return d["details"][0]["contact_point"]
     except IndexError:
         return ""
 
 
-from typing import Callable
-
-@dataclass
-class Getter:    
-    access_with : Callable = lambda xs: xs
-    extract : Callable = lambda x: x    
-    
-
-def yield_address_book(xs):
+def yield_address_book(xs: Dict):
     for x in xs["address_book"]["address_book"]:
-        yield dict(name=decode(x["name"]), contact_point=extract_details(x))
+        yield dict(
+            name=decode(x["name"]), contact_point=extract_address_book_details(x)
+        )
 
 
 def get_address_book(directory: str):
-    return get(directory, "address_book", yield_address_book)
+    return get_list(directory, path_address_book, yield_address_book)
 
 
 def extract_post(d: dict) -> str:
@@ -102,53 +88,79 @@ def extract_post(d: dict) -> str:
         return ""
 
 
-def yield_posts(xs):
+def yield_posts(xs: List):
     for x in xs:
         yield dict(post=extract_post(x), timestamp=extract_timestamp(x["timestamp"]))
 
 
 def get_posts(directory: str):
-    return get(directory, "posts", yield_posts)
+    return get_list(directory, path_posts, yield_posts)
+
+
+def get_list(directory, path_func, yield_func):
+    path = path_func(directory)
+    xs = read_json(path)
+    gen = yield_func(xs)
+    return list(gen)
+
+
+def tprint(labels, values, **kwargs):
+    # See https://github.com/mkaz/termgraph/issues/27
+    from termgraph.termgraph import chart
+
+    args = {
+        "stacked": False,
+        "width": 50,
+        "no_labels": False,
+        "format": "{:<5.2f}",
+        "suffix": "",
+        "vertical": False,
+        "histogram": False,
+        "no_values": False,
+    }
+    args.update(kwargs)
+    data = [[x] for x in values]
+    chart(colors=[], data=data, args=args, labels=labels)
 
 
 if __name__ == "__main__":
     import pandas as pd  # type: ignore
 
-    def cnt(items):
-        return (
+    def count(items):
+        df = (
             pd.DataFrame(items)
             .set_index("timestamp")
             .groupby(pd.Grouper(freq="M"))
             .count()
         )
+        df.index.name = None
+        df.columns = [""]
+        df.index = df.index.to_period("M")
+        return df
 
-    folder = "./facebook-epogrebnyak"
-    friends = get_friends(folder)
-    print("Friends added in Jan-Jul 2020:", len(friends))
-    # Friends added in Jan-Jul 2020: 39
+    def print_count(items):
+        df = count(items)
+        tprint([str(x) for x in df.index], df.iloc[:, 0].tolist(), 
+               format="{:<5.0f}", width=20)
 
+    directory = "./facebook-epogrebnyak"
+    friends = get_friends(directory)
     friends_df = pd.DataFrame(friends)
-    print("By month:", cnt(friends))
-    # By month:
-    #             name
-    # timestamp
-    # 2020-01-31     3
-    # 2020-02-29     2
-    # 2020-03-31     2
-    # 2020-04-30     3
-    # 2020-05-31     8
-    # 2020-06-30    18
-    # 2020-07-31     3
+    print("Friends added in Jan-Jul 2020 by month (total %i)" % len(friends))
+    print_count(friends)
 
-    phones = get_address_book(folder)
-    print("\nNumbers from my phonebook on Facebook:", len(phones))
-    # Numbers from my phonebook Facebook stores:
+    phones = get_address_book(directory)
+    print("\nContacts from my phonebook stored by Facebook:")
+    tprint(["2020-07"], [len(phones)], format="{:d}")
 
-    posts = get_posts(folder)
-    print("\nNumbers of posts Jan-Jul 2020:", len(posts))
-    print("By month:\n", cnt(posts))
+    posts = get_posts(directory)
+    print(
+        "\nNumber of posts Jan-Jul 2020 by month (total %i)" % len(posts))
+    print_count(posts)
 
 # TODO - things to try:
 # - Enforce dataframe properties via pandera or bulwark
 # - Generate fake data and folder stucture for testing
-# - Add post, comments, locations
+# - Add comments, locations
+# - CLI graphs
+# - output directory for CSVs
