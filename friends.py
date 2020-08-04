@@ -17,24 +17,86 @@ numbers stored by Facebook as well as posts:
 
 import datetime
 import json
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List
+from typing import Callable, List
 
 __all__ = ["get_friends", "get_address_book", "get_posts"]
 
 
-def path_friends(directory: str) -> Path:
-    return Path(directory) / "friends" / "friends.json"
+@dataclass
+class Getter:
+    path: List[str]
+    unpack: Callable
+    elem: Callable
+    columns: List[str]
+
+    def make_path(self, directory):
+        return Path(directory).joinpath(*self.path)
+
+    def iterate(self, directory):
+        path = self.make_path(directory)
+        xs = read_json(path)
+        for x in self.unpack(xs):
+            yield self.elem(x)
+
+    def get(self, directory):
+        return list(self.iterate(directory))
+
+    def dataframe(self, directory):
+        import pandas as pd # type: ignore
+
+        df = pd.DataFrame(self.iterate(directory), columns=self.columns)
+        if "timestamp" in self.columns:
+            df["timestamp"] = df.timestamp.map(lambda x: pd.Timestamp(x, unit="s"))
+        return df
 
 
-# maybe there are several files for posts
-def path_posts(directory: str) -> Path:
-    return Path(directory) / "posts" / "your_posts_1.json"
+class FB:
+    comments = Getter(
+        path=["comments", "comments.json"],
+        unpack=lambda xs: xs["comments"],
+        elem=lambda x: (x["timestamp"], decode(x["data"][0]["comment"]["comment"])),
+        columns=["timestamp", "comment"],
+    )
+
+    friends = Getter(
+        path=["friends", "friends.json"],
+        unpack=lambda xs: xs["friends"],
+        elem=lambda x: (x["timestamp"], decode(x["name"]),),
+        columns=["timestamp", "name"],
+    )
+
+    posts = Getter(
+        # maybe there are several files for posts
+        path=["posts", "your_posts_1.json"],
+        unpack=lambda xs: xs,
+        elem=lambda x: (x["timestamp"], extract_post(x),),
+        columns=["timestamp", "post"],
+    )
+
+    address_book = Getter(
+        path=["about_you", "your_address_books.json"],
+        unpack=lambda xs: xs["address_book"]["address_book"],
+        elem=lambda x: (decode(x["name"]), extract_address_book_details(x)),
+        columns=["name", "contact"],
+    )
 
 
-# maybe there are several files for posts
-def path_address_book(directory: str) -> Path:
-    return Path(directory) / "about_you" / "your_address_books.json"
+def get_address_book(directory: str):
+    return FB.address_book.get(directory)
+
+
+def get_friends(directory: str):
+    return FB.friends.get(directory)
+
+
+def get_posts(directory: str):
+    return FB.posts.get(directory)
+
+
+def get_comments(directory: str):
+    return FB.comments.get(directory)
 
 
 def read_json(filename: Path):
@@ -57,31 +119,11 @@ def decode(string: str) -> str:
     return string.encode("latin-1").decode("utf-8")
 
 
-def yield_friends(xs: Dict):
-    for x in xs["friends"]:
-        yield dict(name=decode(x["name"]), timestamp=extract_timestamp(x["timestamp"]))
-
-
-def get_friends(directory: str):
-    return get_list(directory, path_friends, yield_friends)
-
-
 def extract_address_book_details(d: dict) -> str:
     try:
         return d["details"][0]["contact_point"]
     except IndexError:
         return ""
-
-
-def yield_address_book(xs: Dict):
-    for x in xs["address_book"]["address_book"]:
-        yield dict(
-            name=decode(x["name"]), contact_point=extract_address_book_details(x)
-        )
-
-
-def get_address_book(directory: str):
-    return get_list(directory, path_address_book, yield_address_book)
 
 
 def extract_post(d: dict) -> str:
@@ -91,25 +133,9 @@ def extract_post(d: dict) -> str:
         return ""
 
 
-def yield_posts(xs: List):
-    for x in xs:
-        yield dict(post=extract_post(x), timestamp=extract_timestamp(x["timestamp"]))
-
-
-def get_posts(directory: str):
-    return get_list(directory, path_posts, yield_posts)
-
-
-def get_list(directory, path_func, yield_func):
-    path = path_func(directory)
-    xs = read_json(path)
-    gen = yield_func(xs)
-    return list(gen)
-
-
 def tprint(labels, values, **kwargs):
     # See https://github.com/mkaz/termgraph/issues/27
-    from termgraph.termgraph import chart
+    from termgraph.termgraph import chart # type: ignore
 
     args = {
         "stacked": False,
@@ -129,45 +155,46 @@ def tprint(labels, values, **kwargs):
 if __name__ == "__main__":
     import pandas as pd  # type: ignore
 
-    def count(items):
-        df = (
-            pd.DataFrame(items)
-            .set_index("timestamp")
-            .groupby(pd.Grouper(freq="M"))
-            .count()
-        )
+    def count(df_):
+        df = df_.set_index("timestamp").groupby(pd.Grouper(freq="M")).count()
         df.index.name = None
         df.columns = [""]
         df.index = df.index.to_period("M")
         return df
 
-    def print_count(items):
-        df = count(items)
-        tprint([str(x) for x in df.index], df.iloc[:, 0].tolist(), 
-               format="{:<5.0f}", width=20)
+    def print_count(df):
+        df = count(df)
+        tprint(
+            [str(x) for x in df.index],
+            df.iloc[:, 0].tolist(),
+            format="{:<5.0f}",
+            width=20,
+        )
 
     directory = "./facebook-epogrebnyak"
     friends = get_friends(directory)
-    friends_df = pd.DataFrame(friends)
     print("Friends added in Jan-Jul 2020 by month (total %i)" % len(friends))
-    print_count(friends)
+    friends_df = FB.friends.dataframe(directory)
+    print_count(friends_df)
 
     phones = get_address_book(directory)
     print("\nContacts from my phonebook stored by Facebook:")
     tprint(["2020-07"], [len(phones)], format="{:d}")
 
     posts = get_posts(directory)
-    print(
-        "\nNumber of posts Jan-Jul 2020 by month (total %i)" % len(posts))
-    print_count(posts)
+    print("\nNumber of posts Jan-Jul 2020 by month (total %i)" % len(posts))
+    posts_df = FB.posts.dataframe(directory)
+    print_count(posts_df)
 
 # TODO - things to try:
-    
-# Implementation:   
+
+# Implementation:
 # - Enforce dataframe properties via pandera or bulwark
 # - Generate fake data and folder stucture for testing
+# - Installable package (poetry?)
 
-# Functionality:   
-# - [x] text-based graphs 
+
+# Functionality:
+# - [x] text-based graphs
 # - add comments, locations retieval - new get_something() functions
 # - output directory for CSVs
