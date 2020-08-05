@@ -106,17 +106,17 @@ class Reader:
     """Parent class to associate specific directory and getter."""
 
     getter: Getter = None
-    
+
     def __init__(self, directory: str):
-        self.directory = directory       
-        
+        self.directory = directory
+
     @property
     def columns(self):
         return self.getter.columns
 
     def iterate(self):
         return self.getter.iterate(self.directory)
- 
+
     def get_tuples(self):
         return list(self.iterate())
 
@@ -138,9 +138,9 @@ class Reader:
     @classmethod
     def csv_path(cls, output_dir):
         return Path(output_dir) / (cls.getter.name + ".csv")
-    
+
     def save_csv(self, output_dir):
-        df = self.get_dataframe()        
+        df = self.get_dataframe()
         df.to_csv(self.csv_path(output_dir), index=None)
 
 
@@ -268,26 +268,25 @@ if __name__ == "__main__":
 
     directory = "./facebook-epogrebnyak"
     friends = get_friends(directory)
-    print("Friends added in Jan-Jul 2020 by month (total %i)" % len(friends))
+    print("Friends added by month (total %i)" % len(friends))
     friends_df = Friends(directory).get_dataframe()
     print_count(friends_df)
 
     phones = get_address_book(directory)
     print("\nContacts from my phonebook stored by Facebook:")
-    tprint(["2020-07"], [len(phones)], format="{:d}")
+    tprint(["Total"], [len(phones)], format="{:d}")
 
     posts = get_posts(directory)
-    print("\nNumber of posts Jan-Jul 2020 by month (total %i)" % len(posts))
+    print("\nNumber of posts by month (total %i)" % len(posts))
     posts_df = Posts(directory).get_dataframe()
     print_count(posts_df)
-    
-  
+
     f = Friends(directory)
-    friends_list = f.get_tuples()    # returns list of tuples
-    friends_dicts = f.get_dicts()    # returns list of dictionaries
-    friends_gen = f.iterate()        # useful for streaming large archives
-    friends_df = f.get_dataframe()   # ready for analysis 
-    f.save_csv("./output_folder")    # not implemented yet
+    friends_list = f.get_tuples()  # returns list of tuples
+    friends_dicts = f.get_dicts()  # returns list of dictionaries
+    friends_gen = f.iterate()  # useful for streaming large archives
+    friends_df = f.get_dataframe()  # ready for analysis
+    f.save_csv("./output_folder")  # not implemented yet
 
 # TODO - things to try:
 
