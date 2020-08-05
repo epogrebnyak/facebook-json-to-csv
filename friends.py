@@ -301,6 +301,7 @@ if __name__ == "__main__":
 # - Installable package (via poetry?)
 # - Rename package
 # - Test on large archive (~1GB)
+# - Logging strategy
 
 # Functionality:
 # - [x] text-based graphs
