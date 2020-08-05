@@ -51,7 +51,9 @@ Number of posts Jan-Jul 2020 by month (total 33)
 
 ## Background
 
-Motivated by: 
+Motivated by desire for break free from FB without loosing the data.
+
+Similar efforts:
 
 - https://github.com/itzmeanjan/fviz/issues/15
 - https://github.com/kaustubhhiware/facebook-archive
