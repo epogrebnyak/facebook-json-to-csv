@@ -1,5 +1,5 @@
 # facebook-json-to-csv
-Convert your personal Facebook JSON archive to CSV or pandas dataframe.
+Convert your personal Facebook JSON archive to CSV files or pandas dataframes.
 
 ### How to use
 
