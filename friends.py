@@ -16,17 +16,17 @@ The easiest way to access data is get_something() functions:
     posts = get_posts(directory)
 
 The functions about return lists. You may want to work with generators
-of tuples or dicts or pandas dataframes as well. 
-You can use reader classes for that. 
+of tuples or dicts or pandas dataframes as well. You can use reader 
+classes for that:
 
     from friends import Friends, Comments, Posts, AddressBook 
     
-    f = Friends(directory)
-    friends_list = f.get_tuples()    # returns list of tuples
-    friends_dicts = f.get_dicts()    # returns list of dictionaries
+    f = Friends("./facebook-epogrebnyak")
+    friends = f.get_tuples()         # list of (timestamp, name) tuples
+    friends_dicts = f.get_dicts()    # same data as list of dictionaries
     friends_gen = f.iterate()        # useful for streaming large archives
-    friends_df = f.get_dataframe()   # ready for analysis 
-    f.save_csv("./output_folder")    # not implemented yet
+    friends_df = f.get_dataframe()   # pandas DataFrame ready for analysis 
+    f.save_csv("./output_folder")    # saves data to 'friends.csv'
 
 """
 
@@ -299,7 +299,8 @@ if __name__ == "__main__":
 
 # Functionality:
 # - [x] text-based graphs
-# - add locations retieval
-# - output directory for CSVs
+# - [x] output directory for CSVs
+# - add locations retieval, Locations class
 # - all posts where I'm tagged (probably can't)
 # - largest files in the directory
+# - all links ever mentioned in posts
