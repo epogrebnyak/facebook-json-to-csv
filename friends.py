@@ -52,8 +52,11 @@ __all__ = [
 @dataclass
 class Getter:
     name: str
+    # file location inside JSON folder
     path: List[str]
+    # access specific part of file after reading it by read_json()
     unpack: Callable
+    # convert one element (eg post, comment) to final representation
     elem: Callable
     columns: List[str]
 
@@ -68,6 +71,8 @@ class Getter:
 
 
 class FB:
+    """Getter classes by types of content."""
+
     comments = Getter(
         name="comments",
         path=["comments", "comments.json"],
@@ -103,7 +108,7 @@ class FB:
 
 
 class Reader:
-    """Parent class to associate specific directory and getter."""
+    """Parent class to associate specific *directory* and Getter."""
 
     getter: Getter = None
 
@@ -295,6 +300,7 @@ if __name__ == "__main__":
 # - Generate fake data and folder stucture for testing
 # - Installable package (via poetry?)
 # - Rename package
+# - Test on large archive (~1GB)
 
 # Functionality:
 # - [x] text-based graphs
@@ -303,3 +309,4 @@ if __name__ == "__main__":
 # - all posts where I'm tagged (probably can't)
 # - largest files in the directory
 # - all links ever mentioned in posts
+# - save all files as CSV
