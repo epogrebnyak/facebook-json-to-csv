@@ -3,13 +3,26 @@ Convert your personal Facebook JSON archive to CSV or pandas dataframe.
 
 ### How to use
 
-1. Request a JSON archive from Facebook, download it and unpack zip file to local folder
+1. Request a JSON archive from Facebook, download it and unpack zip file to local folder.
 2. Copy [`friends.py`](https://raw.githubusercontent.com/epogrebnyak/facebook-json-to-csv/master/friends.py) somewhere you can use it, for example
 
 ```
 curl -o friends.py https://raw.githubusercontent.com/epogrebnyak/facebook-json-to-csv/master/friends.py
 ```
-3. Try some code as below:
+3. Try some code as below with functions or with reader classes.
+
+Read your data:
+
+```python
+from friends import get_friends, get_address_book, get_posts
+
+directory = "C:/temp/facebook-me" # your path to folder with JSON here
+friends = get_friends(directory)
+phones = get_address_book(directory)
+posts = get_posts(directory)
+```
+
+More options:
 
 ```python
 from friends import Friends, Comments, Posts, AddressBook 
