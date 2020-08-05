@@ -38,8 +38,7 @@ from typing import Callable, List
 
 
 __all__ = [
-    "save_csv_all"
-    "get_friends",
+    "save_csv_all" "get_friends",
     "Friends",
     "get_address_book",
     "AddressBook",
@@ -115,24 +114,27 @@ class FB:
         name="reactions",
         path=["likes_and_reactions", "posts_and_comments.json"],
         unpack=lambda xs: xs["reactions"],
-        elem=lambda x: (x["timestamp"], 
-                        x["data"][0]["reaction"]["reaction"],
-                        decode(x['title'])),
-        columns=["timestamp", "reaction", "title"])
+        elem=lambda x: (
+            x["timestamp"],
+            x["data"][0]["reaction"]["reaction"],
+            decode(x["title"]),
+        ),
+        columns=["timestamp", "reaction", "title"],
+    )
 
     sessions: Getter = Getter(
         name="sessions",
         path=["security_and_login_information", "account_activity.json"],
         unpack=lambda xs: xs["account_activity"],
-        elem=lambda x: (x["timestamp"], 
-                        x["ip_address"],
-                        decode(x["city"]),
-                        decode(x["region"]),
-                        x["country"]),
+        elem=lambda x: (
+            x["timestamp"],
+            x["ip_address"],
+            decode(x["city"]),
+            decode(x["region"]),
+            x["country"],
+        ),
         columns=["timestamp", "ip_address", "city", "region", "ip_address"],
-
     )
-
 
 
 class Reader:
@@ -174,12 +176,18 @@ class Reader:
 
     def save_csv(self, output_dir):
         df = self.get_dataframe()
-        df.to_csv(self.csv_path(output_dir), index=None)
+        filepath = self.csv_path(output_dir)
+        df.to_csv(filepath, index=None)
+        return filepath
 
 
 def save_csv_all(source_dir: str, output_dir: str):
-   for reader in Reader.__subclasses__():
-       reader(source_dir).save_csv(output_dir)
+    filepaths = []
+    for reader in Reader.__subclasses__():
+        fp = reader(source_dir).save_csv(output_dir)
+        filepaths.append(fp)
+    print("\nSaved files:\n ", "\n  ".join(map(str, filepaths)))
+    return filepaths
 
 
 class Friends(Reader):
@@ -196,11 +204,11 @@ class Posts(Reader):
 
 class AddressBook(Reader):
     getter = FB.address_book
-    
+
 
 class Reactions(Reader):
     getter = FB.reactions
-    
+
 
 class Sessions(Reader):
     getter = FB.sessions
@@ -209,8 +217,6 @@ class Sessions(Reader):
 def all_getters():
     return [getattr(FB, k) for k in FB.__dict__.keys() if not k.startswith("_")]
 
-
-    
 
 def get_address_book(directory: str):
     return AddressBook(directory).get_tuples()
@@ -310,7 +316,7 @@ if __name__ == "__main__":
         )
 
     directory = "./facebook-epogrebnyak"
-    
+
     phones = get_address_book(directory)
     print("\nContacts from my phonebook stored by Facebook:")
     tprint(["Total"], [len(phones)], format="{:d}")
@@ -325,7 +331,7 @@ if __name__ == "__main__":
     pubs_df = pd.concat([posts_df, comments_df])
     print("\nNumber of posts and comments by month (total %i)" % len(pubs_df))
     print_count(pubs_df)
-    
+
     reactions_df = Reactions(directory).get_dataframe()
     print("\nReactions by month (total %i)" % len(reactions_df))
     print_count(reactions_df)
@@ -333,18 +339,23 @@ if __name__ == "__main__":
     sessions_df = Sessions(directory).get_dataframe()
     print("\nSessions by month (total %i)" % len(sessions_df))
     print_count(sessions_df)
-    print("Session locations (includes VPN):",
-          ", ".join(sorted(sessions_df.city.unique().tolist())))
+    print(
+        "Session locations (includes VPN):",
+        ", ".join(sorted(sessions_df.city.unique().tolist())),
+    )
 
     f = Friends(directory)
     friends_list = f.get_tuples()  # returns list of tuples
     friends_dicts = f.get_dicts()  # returns list of dictionaries
     friends_gen = f.iterate()  # useful for streaming large archives
     friends_df = f.get_dataframe()  # ready for analysis
-    f.save_csv("./output_folder")  
-    
-    save_csv_all("./facebook-epogrebnyak", "./output_folder")
-    
+    f.save_csv("./output_folder")
+
+    filepaths = save_csv_all(
+        source_dir="./facebook-epogrebnyak", output_dir="./output_folder"
+    )
+
+
 # TODO - things to try:
 
 # Implementation:
