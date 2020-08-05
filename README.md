@@ -38,7 +38,7 @@ friends_df = f.get_dataframe()   # pandas DataFrame ready for analysis
 f.save_csv("./output_folder")    # saves data to 'friends.csv'
 ```
 
-See [friends.py](friends.py) for another example:
+See [friends.py](friends.py) for some bars in the terminal:
 
 ```
 Friends added in Jan-Jul 2020 by month (total 39)
