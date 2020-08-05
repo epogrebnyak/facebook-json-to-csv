@@ -4,7 +4,9 @@ Download data from Facebook as JSON file and unzip to local folder,
 like "C:/temp/facebook-me".
 
 Now you can get your friends list with timestamps and your phone 
-numbers stored by Facebook as well as posts:
+numbers stored by Facebook as well as posts.
+
+The easiest way to access data is get_something() functions:
     
     from friends import get_friends, get_address_book, get_posts
     
@@ -12,6 +14,19 @@ numbers stored by Facebook as well as posts:
     friends = get_friends(directory)
     phones = get_address_book(directory)
     posts = get_posts(directory)
+
+The functions about return lists. You may want to work with generators
+of tuples or dicts or pandas dataframes as well. 
+You can use reader classes for that. 
+
+    from friends import Friends, Comments, Posts, AddressBook 
+    
+    f = Friends(directory)
+    friends_list = f.get_tuples()    # returns list of tuples
+    friends_dicts = f.get_dicts()    # returns list of dictionaries
+    friends_gen = f.iterate()        # useful for streaming large archives
+    friends_df = f.get_dataframe()   # ready for analysis 
+    f.save_csv("./output_folder")    # not implemented yet
 
 """
 
@@ -21,11 +36,22 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, List
 
-__all__ = ["get_friends", "get_address_book", "get_posts", "get_comments"]
+
+__all__ = [
+    "get_friends",
+    "Friends",
+    "get_address_book",
+    "AddressBook",
+    "get_posts",
+    "Posts",
+    "get_comments",
+    "Comments",
+]
 
 
 @dataclass
 class Getter:
+    name: str
     path: List[str]
     unpack: Callable
     elem: Callable
@@ -40,31 +66,10 @@ class Getter:
         for x in self.unpack(xs):
             yield self.elem(x)
 
-    def get(self, directory):
-        return list(self.iterate(directory))
-
-    def get_dataframe(self, directory):
-        import pandas as pd # type: ignore
-
-        df = pd.DataFrame(self.iterate(directory), columns=self.columns)
-        if "timestamp" in self.columns:
-            df["timestamp"] = df.timestamp.map(lambda x: pd.Timestamp(x, unit="s"))
-        return df
-    
-
-def get_list(directory, fb_item):
-    return fb_item.get(directory)
-    
-def iterate(directory, fb_item):
-    return fb_item.iterate(directory)
-
-def get_dataframe(directory, fb_item):
-    return fb_item.get_dataframe(directory)
-
-
 
 class FB:
     comments = Getter(
+        name="comments",
         path=["comments", "comments.json"],
         unpack=lambda xs: xs["comments"],
         elem=lambda x: (x["timestamp"], decode(x["data"][0]["comment"]["comment"])),
@@ -72,6 +77,7 @@ class FB:
     )
 
     friends = Getter(
+        name="friends",
         path=["friends", "friends.json"],
         unpack=lambda xs: xs["friends"],
         elem=lambda x: (x["timestamp"], decode(x["name"]),),
@@ -79,6 +85,7 @@ class FB:
     )
 
     posts = Getter(
+        name="posts",
         # maybe there are several files for posts
         path=["posts", "your_posts_1.json"],
         unpack=lambda xs: xs,
@@ -86,7 +93,8 @@ class FB:
         columns=["timestamp", "post"],
     )
 
-    address_book = Getter(
+    address_book: Getter = Getter(
+        name="address_book",
         path=["about_you", "your_address_books.json"],
         unpack=lambda xs: xs["address_book"]["address_book"],
         elem=lambda x: (decode(x["name"]), extract_address_book_details(x)),
@@ -94,20 +102,88 @@ class FB:
     )
 
 
+class Reader:
+    """Parent class to associate specific directory and getter."""
+
+    getter: Getter = None
+    
+    def __init__(self, directory: str):
+        self.directory = directory       
+        
+    @property
+    def columns(self):
+        return self.getter.columns
+
+    def iterate(self):
+        return self.getter.iterate(self.directory)
+ 
+    def get_tuples(self):
+        return list(self.iterate())
+
+    def yield_dicts(self):
+        for values in self.iterate():
+            yield dict(zip(self.columns, values))
+
+    def get_dicts(self):
+        return list(self.yield_dicts())
+
+    def get_dataframe(self):
+        import pandas as pd  # type: ignore
+
+        df = pd.DataFrame(self.iterate(), columns=self.columns)
+        if "timestamp" in self.columns:
+            df["timestamp"] = df.timestamp.map(lambda x: pd.Timestamp(x, unit="s"))
+        return df
+
+    def save_csv(self, output_dir):
+        pass
+
+
+class Friends(Reader):
+    getter = FB.friends
+
+
+class Comments(Reader):
+    getter = FB.comments
+
+
+class Posts(Reader):
+    getter = FB.posts
+
+
+class AddressBook(Reader):
+    getter = FB.address_book
+
+
+# not in use
+def all_getters():
+    return [k for k in FB.__dict__.keys() if not k.startswith("_")]
+
+
+# not in use
+def getter_by_name(name: str):
+    mapper = {name: getattr(FB, name) for name in all_getters()}
+    try:
+        return mapper[name]
+    except KeyError:
+        msg = "Accepting {}, got {}".format(all_getters(), name)
+        raise ValueError(msg)
+
+
 def get_address_book(directory: str):
-    return FB.address_book.get(directory)
+    return AddressBook(directory).get_tuples()
 
 
 def get_friends(directory: str):
-    return FB.friends.get(directory)
+    return Friends(directory).get_tuples()
 
 
 def get_posts(directory: str):
-    return FB.posts.get(directory)
+    return Posts(directory).get_tuples()
 
 
 def get_comments(directory: str):
-    return FB.comments.get(directory)
+    return Comments(directory).get_tuples()
 
 
 def read_json(filename: Path):
@@ -115,6 +191,7 @@ def read_json(filename: Path):
         return json.load(f)
 
 
+# not in use now
 def extract_timestamp(x: int) -> datetime.datetime:
     """Convert seconds to timestamp."""
     return datetime.datetime.fromtimestamp(x)
@@ -123,7 +200,9 @@ def extract_timestamp(x: int) -> datetime.datetime:
 def decode(string: str) -> str:
     """Return *string* in readable view.
     
-    Addresses this issue:
+    Facebook encodes utf as latin-1 making non-latin 
+    chars unreadable. See:
+        
     https://stackoverflow.com/questions/50008296/facebook-json-badly-encoded
     
     """
@@ -146,7 +225,7 @@ def extract_post(d: dict) -> str:
 
 def tprint(labels, values, **kwargs):
     # See https://github.com/mkaz/termgraph/issues/27
-    from termgraph.termgraph import chart # type: ignore
+    from termgraph.termgraph import chart  # type: ignore
 
     args = {
         "stacked": False,
@@ -173,8 +252,8 @@ if __name__ == "__main__":
         df.index = df.index.to_period("M")
         return df
 
-    def print_count(df):
-        df = count(df)
+    def print_count(df_):
+        df = count(df_)
         tprint(
             [str(x) for x in df.index],
             df.iloc[:, 0].tolist(),
@@ -185,7 +264,7 @@ if __name__ == "__main__":
     directory = "./facebook-epogrebnyak"
     friends = get_friends(directory)
     print("Friends added in Jan-Jul 2020 by month (total %i)" % len(friends))
-    friends_df = FB.friends.get_dataframe(directory)
+    friends_df = Friends(directory).get_dataframe()
     print_count(friends_df)
 
     phones = get_address_book(directory)
@@ -194,18 +273,28 @@ if __name__ == "__main__":
 
     posts = get_posts(directory)
     print("\nNumber of posts Jan-Jul 2020 by month (total %i)" % len(posts))
-    posts_df = FB.posts.get_dataframe(directory)
+    posts_df = Posts(directory).get_dataframe()
     print_count(posts_df)
+    
+  
+    f = Friends(directory)
+    friends_list = f.get_tuples()    # returns list of tuples
+    friends_dicts = f.get_dicts()    # returns list of dictionaries
+    friends_gen = f.iterate()        # useful for streaming large archives
+    friends_df = f.get_dataframe()   # ready for analysis 
+    f.save_csv("./output_folder")    # not implemented yet
 
 # TODO - things to try:
 
 # Implementation:
 # - Enforce dataframe properties via pandera or bulwark
 # - Generate fake data and folder stucture for testing
-# - Installable package (poetry?)
-
+# - Installable package (via poetry?)
+# - Rename package
 
 # Functionality:
 # - [x] text-based graphs
-# - add comments, locations retieval - new get_something() functions
+# - add locations retieval
 # - output directory for CSVs
+# - all posts where I'm tagged (probably can't)
+# - largest files in the directory
