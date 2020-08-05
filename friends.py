@@ -38,6 +38,7 @@ from typing import Callable, List
 
 
 __all__ = [
+    "save_csv_all"
     "get_friends",
     "Friends",
     "get_address_book",
@@ -46,6 +47,10 @@ __all__ = [
     "Posts",
     "get_comments",
     "Comments",
+    "get_reactions",
+    "Reactions",
+    "get_sessions",
+    "Sessions",
 ]
 
 
@@ -73,12 +78,12 @@ class Getter:
 class FB:
     """Getter classes by types of content."""
 
-    comments = Getter(
-        name="comments",
-        path=["comments", "comments.json"],
-        unpack=lambda xs: xs["comments"],
-        elem=lambda x: (x["timestamp"], decode(x["data"][0]["comment"]["comment"])),
-        columns=["timestamp", "comment"],
+    address_book = Getter(
+        name="address_book",
+        path=["about_you", "your_address_books.json"],
+        unpack=lambda xs: xs["address_book"]["address_book"],
+        elem=lambda x: (decode(x["name"]), extract_address_book_details(x)),
+        columns=["name", "contact"],
     )
 
     friends = Getter(
@@ -95,16 +100,39 @@ class FB:
         path=["posts", "your_posts_1.json"],
         unpack=lambda xs: xs,
         elem=lambda x: (x["timestamp"], extract_post(x),),
-        columns=["timestamp", "post"],
+        columns=["timestamp", "content"],
     )
 
-    address_book: Getter = Getter(
-        name="address_book",
-        path=["about_you", "your_address_books.json"],
-        unpack=lambda xs: xs["address_book"]["address_book"],
-        elem=lambda x: (decode(x["name"]), extract_address_book_details(x)),
-        columns=["name", "contact"],
+    comments = Getter(
+        name="comments",
+        path=["comments", "comments.json"],
+        unpack=lambda xs: xs["comments"],
+        elem=lambda x: (x["timestamp"], decode(x["data"][0]["comment"]["comment"])),
+        columns=["timestamp", "content"],
     )
+
+    reactions: Getter = Getter(
+        name="reactions",
+        path=["likes_and_reactions", "posts_and_comments.json"],
+        unpack=lambda xs: xs["reactions"],
+        elem=lambda x: (x["timestamp"], 
+                        x["data"][0]["reaction"]["reaction"],
+                        decode(x['title'])),
+        columns=["timestamp", "reaction", "title"])
+
+    sessions: Getter = Getter(
+        name="sessions",
+        path=["security_and_login_information", "account_activity.json"],
+        unpack=lambda xs: xs["account_activity"],
+        elem=lambda x: (x["timestamp"], 
+                        x["ip_address"],
+                        decode(x["city"]),
+                        decode(x["region"]),
+                        x["country"]),
+        columns=["timestamp", "ip_address", "city", "region", "ip_address"],
+
+    )
+
 
 
 class Reader:
@@ -149,6 +177,11 @@ class Reader:
         df.to_csv(self.csv_path(output_dir), index=None)
 
 
+def save_csv_all(source_dir: str, output_dir: str):
+   for reader in Reader.__subclasses__():
+       reader(source_dir).save_csv(output_dir)
+
+
 class Friends(Reader):
     getter = FB.friends
 
@@ -163,22 +196,21 @@ class Posts(Reader):
 
 class AddressBook(Reader):
     getter = FB.address_book
+    
+
+class Reactions(Reader):
+    getter = FB.reactions
+    
+
+class Sessions(Reader):
+    getter = FB.sessions
 
 
-# not in use
 def all_getters():
-    return [k for k in FB.__dict__.keys() if not k.startswith("_")]
+    return [getattr(FB, k) for k in FB.__dict__.keys() if not k.startswith("_")]
 
 
-# not in use
-def getter_by_name(name: str):
-    mapper = {name: getattr(FB, name) for name in all_getters()}
-    try:
-        return mapper[name]
-    except KeyError:
-        msg = "Accepting {}, got {}".format(all_getters(), name)
-        raise ValueError(msg)
-
+    
 
 def get_address_book(directory: str):
     return AddressBook(directory).get_tuples()
@@ -194,6 +226,14 @@ def get_posts(directory: str):
 
 def get_comments(directory: str):
     return Comments(directory).get_tuples()
+
+
+def get_reactions(directory: str):
+    return Reactions(directory).get_tuples()
+
+
+def get_sessions(directory: str):
+    return Sessions(directory).get_tuples()
 
 
 def read_json(filename: Path):
@@ -257,8 +297,6 @@ if __name__ == "__main__":
 
     def count(df_):
         df = df_.set_index("timestamp").groupby(pd.Grouper(freq="M")).count()
-        df.index.name = None
-        df.columns = [""]
         df.index = df.index.to_period("M")
         return df
 
@@ -272,42 +310,62 @@ if __name__ == "__main__":
         )
 
     directory = "./facebook-epogrebnyak"
+    
+    phones = get_address_book(directory)
+    print("\nContacts from my phonebook stored by Facebook:")
+    tprint(["Total"], [len(phones)], format="{:d}")
+
     friends = get_friends(directory)
     print("Friends added by month (total %i)" % len(friends))
     friends_df = Friends(directory).get_dataframe()
     print_count(friends_df)
 
-    phones = get_address_book(directory)
-    print("\nContacts from my phonebook stored by Facebook:")
-    tprint(["Total"], [len(phones)], format="{:d}")
-
-    posts = get_posts(directory)
-    print("\nNumber of posts by month (total %i)" % len(posts))
+    comments_df = Comments(directory).get_dataframe()
     posts_df = Posts(directory).get_dataframe()
-    print_count(posts_df)
+    pubs_df = pd.concat([posts_df, comments_df])
+    print("\nNumber of posts and comments by month (total %i)" % len(pubs_df))
+    print_count(pubs_df)
+    
+    reactions_df = Reactions(directory).get_dataframe()
+    print("\nReactions by month (total %i)" % len(reactions_df))
+    print_count(reactions_df)
+
+    sessions_df = Sessions(directory).get_dataframe()
+    print("\nSessions by month (total %i)" % len(sessions_df))
+    print_count(sessions_df)
+    print("Session locations (includes VPN):",
+          ", ".join(sorted(sessions_df.city.unique().tolist())))
 
     f = Friends(directory)
     friends_list = f.get_tuples()  # returns list of tuples
     friends_dicts = f.get_dicts()  # returns list of dictionaries
     friends_gen = f.iterate()  # useful for streaming large archives
     friends_df = f.get_dataframe()  # ready for analysis
-    f.save_csv("./output_folder")  # not implemented yet
-
+    f.save_csv("./output_folder")  
+    
+    save_csv_all("./facebook-epogrebnyak", "./output_folder")
+    
 # TODO - things to try:
 
 # Implementation:
 # - Enforce dataframe properties via pandera or bulwark
 # - Generate fake data and folder stucture for testing
 # - Installable package (via poetry?)
-# - Rename package
+# - Rename package and project
 # - Test on large archive (~1GB)
 # - Logging strategy
 
 # Functionality:
 # - [x] text-based graphs
 # - [x] output directory for CSVs
-# - add locations retieval, Locations class
-# - all posts where I'm tagged (probably can't)
-# - largest files in the directory
-# - all links ever mentioned in posts
 # - save all files as CSV
+# - largest files in the directory - see  `tree --sort=size -s .`
+# - own jpegs in posts
+
+# Content:
+# - all links ever mentioned in posts
+# - FB Messenger messages
+
+# Probably cannot do that:
+# - all posts where I'm tagged
+# - face recognition data (useless)
