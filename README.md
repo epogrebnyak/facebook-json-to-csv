@@ -71,6 +71,7 @@ Motivated by desire for break free from FB without loosing the data.
 
 Similar efforts:
 
+- https://github.com/Lackoftactics/facebook_data_analyzer
 - https://github.com/itzmeanjan/fviz/issues/15
 - https://github.com/kaustubhhiware/facebook-archive
 - https://github.com/numbersprotocol/fb-json2table/
