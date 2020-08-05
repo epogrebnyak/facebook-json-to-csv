@@ -11,6 +11,9 @@ curl -o friends.py https://raw.githubusercontent.com/epogrebnyak/facebook-json-t
 ```
 3. Try some code as below with functions or with reader classes.
 
+
+### Examples
+
 Read your data:
 
 ```python
