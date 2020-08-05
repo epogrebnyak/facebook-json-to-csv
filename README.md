@@ -3,7 +3,7 @@ Convert your personal Facebook JSON archive to CSV or pandas dataframe for data 
 
 As easy as:
 
-```
+```python
 from friends import Friends, Comments, Posts, AddressBook 
 
 f = Friends("./facebook-epogrebnyak")
