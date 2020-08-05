@@ -135,8 +135,13 @@ class Reader:
             df["timestamp"] = df.timestamp.map(lambda x: pd.Timestamp(x, unit="s"))
         return df
 
+    @classmethod
+    def csv_path(cls, output_dir):
+        return Path(output_dir) / (cls.getter.name + ".csv")
+    
     def save_csv(self, output_dir):
-        pass
+        df = self.get_dataframe()        
+        df.to_csv(self.csv_path(output_dir), index=None)
 
 
 class Friends(Reader):

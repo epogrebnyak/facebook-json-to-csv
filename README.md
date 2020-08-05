@@ -1,7 +1,21 @@
 # facebook-json-to-csv
 Convert your personal Facebook JSON archive to CSV or pandas dataframe for data analysis
 
-Example of use (see [friends.py](friends.py)):
+As easy as:
+
+```
+from friends import Friends, Comments, Posts, AddressBook 
+
+f = Friends("./facebook-epogrebnyak")
+friends = f.get_tuples()         # list of (timestamp, name) tuples
+friends_dicts = f.get_dicts()    # same data as list of dictionaries
+friends_gen = f.iterate()        # useful for streaming large archives
+friends_df = f.get_dataframe()   # pandas DataFrame ready for analysis 
+f.save_csv("./output_folder")    # saves data "friends.csv" (not implemented)
+```
+
+
+Another example (see [friends.py](friends.py)):
 
 ```
 Friends added in Jan-Jul 2020 by month (total 39)
