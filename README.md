@@ -22,7 +22,7 @@ friends_df = f.get_dataframe()   # pandas DataFrame ready for analysis
 f.save_csv("./output_folder")    # saves data to 'friends.csv'
 ```
 
-Another example (see [friends.py](friends.py)):
+See [friends.py](friends.py) for another example:
 
 ```
 Friends added in Jan-Jul 2020 by month (total 39)
